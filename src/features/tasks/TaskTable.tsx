@@ -1,12 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
 import { fetchTasks, updateTask, deleteTask, type Task } from "./taskSlice";
 import { listUsers, type UserLite } from "../users/usersApi";
-import { Toast } from "../../componenets/Toast";
+import { Toast } from "../../componenets/Toast"; //  fix path
+import TableToolbar from "../../componenets/ui/TableToolbar";
+import Pagination from "../../componenets/ui/Pagination";
 
-const LIMIT = 10;
-const statusOptions = ["todo", "inprogress", "done"] as const;
-const priorityOptions = ["low", "medium", "high"] as const;
+type SortKey = '-createdAt' | 'createdAt' | '-priority' | 'priority' | '-dueDate' | 'dueDate';
+
+const DEFAULTS = {
+  status: '',
+  sort: '-createdAt' as SortKey,
+  page: 1,
+  limit: 10,
+};
+
+function getNum(v: string | null, fallback: number) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+function getSort(v: string | null, fallback: SortKey): SortKey {
+  const allowed: SortKey[] = ['-createdAt','createdAt','-priority','priority','-dueDate','dueDate'];
+  return allowed.includes(v as SortKey) ? (v as SortKey) : fallback;
+}
 
 export default function TaskTable() {
   const d = useAppDispatch();
@@ -14,38 +31,68 @@ export default function TaskTable() {
   const role = useAppSelector((s) => s.auth.user?.role);
   const meId = useAppSelector((s) => s.auth.user?.id);
 
-  const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [sort, setSort] = useState("-createdAt");
+  // URL params
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Local state mirrors URL (but URL is the source of truth)
+  const [status, setStatus] = useState<string>(searchParams.get('status') ?? DEFAULTS.status);
+  const [sort, setSort] = useState<SortKey>(getSort(searchParams.get('sort'), DEFAULTS.sort));
+  const [page, setPage] = useState<number>(getNum(searchParams.get('page'), DEFAULTS.page));
+  const [limit, setLimit] = useState<number>(getNum(searchParams.get('limit'), DEFAULTS.limit));
+
+  // Keep local state in sync when URL changes (e.g., back/forward)
+  useEffect(() => {
+    setStatus(searchParams.get('status') ?? DEFAULTS.status);
+    setSort(getSort(searchParams.get('sort'), DEFAULTS.sort));
+    setPage(getNum(searchParams.get('page'), DEFAULTS.page));
+    setLimit(getNum(searchParams.get('limit'), DEFAULTS.limit));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.toString()]); // serialize so it actually triggers
+
+  // Users for Assignee select (admin only)
+  const [users, setUsers] = useState<UserLite[]>([]);
   const [toast, setToast] = useState<string | undefined>();
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  // Users for Assignee select (manager/admin only)
-  const [users, setUsers] = useState<UserLite[]>([]);
   useEffect(() => {
     if (role === "admin") {
-      listUsers()
-        .then(setUsers)
-        .catch((e) => setToast(e?.message || "Failed to load users"));
+      listUsers().then(setUsers).catch((e) => setToast(e?.message || "Failed to load users"));
     } else {
-      setUsers([]); // ensure empty for manager/user
+      setUsers([]);
     }
   }, [role]);
 
+  // Fetch whenever URL-derived state changes
   useEffect(() => {
-    setPage(1);
-  }, [statusFilter, sort]);
-
-  useEffect(() => {
-    (d(fetchTasks({ status: statusFilter, sort, page, limit: LIMIT })) as any)
+    (d(fetchTasks({ status, sort, page, limit })) as any)
       .unwrap?.()
       .catch((e: any) => setToast(e?.message || "Failed to load tasks"));
-  }, [d, statusFilter, sort, page]);
+  }, [d, status, sort, page, limit]);
 
-  const maxPages = useMemo(
-    () => Math.max(1, Math.ceil((total || 0) / LIMIT)),
-    [total]
-  );
+  // Helpers to update URL (source of truth)
+  const updateParams = (next: Partial<{ status: string; sort: SortKey; page: number; limit: number }>, replace = true) => {
+    const current = Object.fromEntries(searchParams.entries());
+    const merged = {
+      status: status,
+      sort: sort,
+      page: String(page),
+      limit: String(limit),
+      ...current,
+      ...Object.fromEntries(Object.entries(next).map(([k, v]) => [k, String(v)])),
+    };
+
+    // Remove defaults to keep URL clean
+    if (merged.status === DEFAULTS.status) delete merged.status;
+    if (merged.sort === DEFAULTS.sort) delete merged.sort;
+    if (Number(merged.page) === DEFAULTS.page) delete merged.page;
+    if (Number(merged.limit) === DEFAULTS.limit) delete merged.limit;
+
+    setSearchParams(merged, { replace });
+  };
+
+  const clearFilters = () => {
+    setSearchParams({}, { replace: true });
+  };
 
   const userMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -55,14 +102,15 @@ export default function TaskTable() {
 
   // permissions
   const canEditTitle = (t: Task) => role === "admin";
-  const canEditMeta = (t: Task) => role === "admin" || role === "manager";
-  const canEditOwner = (t: Task) => role === "admin"; // <-- manager cannot change assignee
-  const canDelete = (t: Task) => role === "admin";
-  const canEditStatus = (t: Task) =>
+  const canEditMeta  = (t: Task) => role === "admin" || role === "manager";
+  const canEditOwner = (t: Task) => role === "admin";
+  const canDelete    = (t: Task) => role === "admin";
+  const canEditStatus= (t: Task) =>
     role === "admin" ||
-    role === "manager" || // server still enforces own/team
+    role === "manager" ||
     (role === "user" && t.owner === meId);
 
+  // updates
   const onInlineUpdate = async (id: string, body: Partial<Task>) => {
     try {
       setBusyId(id);
@@ -86,314 +134,209 @@ export default function TaskTable() {
     }
   };
 
-  // Render
+  // header sorting UI
+  const toggleSort = (key: 'createdAt' | 'priority' | 'dueDate') => {
+    const desc = `-${key}` as SortKey;
+    const asc  = key as SortKey;
+    const next = sort === desc ? asc : desc;
+    // when sort changes, reset page to 1
+    updateParams({ sort: next, page: 1 });
+  };
+  const sortIcon = (key: 'createdAt' | 'priority' | 'dueDate') => {
+    const desc = `-${key}`; const asc = key;
+    return <span className="ml-1 text-xs text-gray-500">{sort === desc ? '↓' : sort === asc ? '↑' : '↕'}</span>;
+  };
+
   return (
     <div className="space-y-3">
-      {/* Filters + Add button */}
-      <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-        <div className="flex gap-2">
-          <select
-            className="input"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+      <TableToolbar
+        status={status}
+        sort={sort}
+        onStatusChange={(s) => updateParams({ status: s, page: 1 })}
+        onSortChange={(s) => updateParams({ sort: s, page: 1 })}
+        rightSlot={
+          <button
+            className="border rounded px-3 py-2 text-sm hover:bg-gray-50"
+            onClick={clearFilters}
+            title="Clear filters and sorting"
           >
-            <option value="">All</option>
-            <option value="todo">Todo</option>
-            <option value="inprogress">In Progress</option>
-            <option value="done">Done</option>
-          </select>
-          <select
-            className="input"
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-          >
-            <option value="-createdAt">Newest</option>
-            <option value="createdAt">Oldest</option>
-            <option value="-priority">Priority desc</option>
-            <option value="priority">Priority asc</option>
-          </select>
-        </div>
-
-        {/* Add Task button is handled by Dashboard (opens modal) */}
-      </div>
+            Clear
+          </button>
+        }
+      />
 
       <div className="overflow-auto border rounded">
-        <table className="min-w-[700px] w-full">
-          <thead className="bg-gray-50 text-left text-sm">
+        <table className="min-w-[800px] w-full">
+          <thead className="bg-gray-50 text-left text-sm sticky top-0 z-[1]">
             <tr>
               <th className="p-2 w-6">#</th>
               <th className="p-2">Title</th>
+              <th className="p-2 cursor-pointer select-none" onClick={() => toggleSort('createdAt')}>
+                Created {sortIcon('createdAt')}
+              </th>
               <th className="p-2">Status</th>
-              <th className="p-2">Priority</th>
-              <th className="p-2">Due</th>
+              <th className="p-2 cursor-pointer select-none" onClick={() => toggleSort('priority')}>
+                Priority {sortIcon('priority')}
+              </th>
+              <th className="p-2 cursor-pointer select-none" onClick={() => toggleSort('dueDate')}>
+                Due {sortIcon('dueDate')}
+              </th>
               <th className="p-2">Assignee</th>
               <th className="p-2 w-24">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && items.length === 0 && (
-              <>
-                <tr>
-                  <td colSpan={7} className="p-4">
-                    Loading…
-                  </td>
-                </tr>
-              </>
+              <tr><td colSpan={8} className="p-4">Loading…</td></tr>
             )}
             {!loading && items.length === 0 && (
-              <tr>
-                <td colSpan={7} className="p-4 text-gray-600">
-                  No tasks found.
-                </td>
-              </tr>
+              <tr><td colSpan={8} className="p-4 text-gray-600">No tasks found.</td></tr>
             )}
 
-            {items.map((t: Task, i: number) => {
-              // USERS: force assignee to self & lock edits except status
-              const isUser = role === "user";
-              const lockAllButStatus = isUser;
+            {items.map((t: Task, i: number) => (
+              <tr key={t._id} className="border-t hover:bg-gray-50">
+                <td className="p-2 text-sm text-gray-500">{(page - 1) * limit + i + 1}</td>
 
-              return (
-                <tr key={t._id} className="border-t">
-                  <td className="p-2 text-sm text-gray-500">
-                    {(page - 1) * LIMIT + i + 1}
-                  </td>
+                {/* Title */}
+                <td className="p-2">
+                  {canEditTitle(t) ? (
+                    <InlineText
+                      value={t.title}
+                      disabled={busyId === t._id}
+                      onSave={(val) => onInlineUpdate(t._id, { title: val })}
+                    />
+                  ) : (
+                    <div className="truncate">{t.title}</div>
+                  )}
+                </td>
 
-                  {/* Title */}
-                  <td className="p-2">
-                    {canEditTitle ? (
-                      <InlineText
-                        value={t.title}
-                        disabled={busyId === t._id}
-                        onSave={(val) => onInlineUpdate(t._id, { title: val })}
-                      />
-                    ) : (
-                      <div className="truncate">{t.title}</div>
-                    )}
-                  </td>
+                {/* Created */}
+                <td className="p-2 text-gray-600">
+                  {new Date(t.createdAt).toLocaleString()}
+                </td>
 
-                  {/* Status (all roles can edit; user ONLY this) */}
-                  <td className="p-2">
+                {/* Status */}
+                <td className="p-2">
+                  {canEditStatus(t) ? (
                     <InlineSelect
                       value={t.status}
-                      options={statusOptions}
+                      options={["todo","inprogress","done"] as const}
                       disabled={busyId === t._id}
-                      onChange={(val) =>
-                        onInlineUpdate(t._id, { status: val as any })
-                      }
+                      onChange={(val) => onInlineUpdate(t._id, { status: val as any })}
                     />
-                  </td>
+                  ) : (
+                    <span className="capitalize">{t.status}</span>
+                  )}
+                </td>
 
-                  {/* Priority */}
-                  <td className="p-2">
-                    {lockAllButStatus ? (
-                      <span className="capitalize text-gray-600">
-                        {t.priority}
-                      </span>
-                    ) : (
-                      <InlineSelect
-                        value={t.priority}
-                        options={priorityOptions}
-                        disabled={!canEditMeta || busyId === t._id}
-                        onChange={(val) =>
-                          onInlineUpdate(t._id, { priority: val as any })
-                        }
-                      />
-                    )}
-                  </td>
+                {/* Priority */}
+                <td className="p-2">
+                  {canEditMeta(t) ? (
+                    <InlineSelect
+                      value={t.priority}
+                      options={["low","medium","high"] as const}
+                      disabled={busyId === t._id}
+                      onChange={(val) => onInlineUpdate(t._id, { priority: val as any })}
+                    />
+                  ) : (
+                    <span className="capitalize">{t.priority}</span>
+                  )}
+                </td>
 
-                  {/* Due */}
-                  <td className="p-2">
-                    {lockAllButStatus ? (
-                      <span className="text-gray-600">
-                        {t.dueDate
-                          ? new Date(t.dueDate).toLocaleDateString()
-                          : "—"}
-                      </span>
-                    ) : (
-                      <InlineDate
-                        value={t.dueDate ?? ""}
-                        disabled={!canEditMeta || busyId === t._id}
-                        onChange={(val) =>
-                          onInlineUpdate(t._id, { dueDate: val || undefined })
-                        }
-                      />
-                    )}
-                  </td>
+                {/* Due */}
+                <td className="p-2">
+                  {canEditMeta(t) ? (
+                    <InlineDate
+                      value={t.dueDate ?? ""}
+                      disabled={busyId === t._id}
+                      onChange={(val) => onInlineUpdate(t._id, { dueDate: val || undefined })}
+                    />
+                  ) : t.dueDate ? (
+                    new Date(t.dueDate).toLocaleDateString()
+                  ) : ("—")}
+                </td>
 
-                  {/* Assignee (readable name if we have it) */}
-                  <td className="p-2">
-                    {canEditOwner(t) ? (
-                      <InlineAssignee
-                        value={t.owner}
-                        users={users}
-                        disabled={busyId === t._id}
-                        onChange={(val) =>
-                          onInlineUpdate(t._id, { owner: val as any })
-                        }
-                      />
-                    ) : (
-                      <span className="text-gray-600">
-                        {/* If admin loaded users, show name; otherwise show id / "Me" */}
-                        {t.owner === meId
-                          ? "Me"
-                          : userMap.get(t.owner) || t.owner}
-                      </span>
-                    )}
-                  </td>
+                {/* Assignee */}
+                <td className="p-2">
+                  {canEditOwner(t) ? (
+                    <InlineAssignee
+                      value={t.owner}
+                      users={users}
+                      disabled={busyId === t._id}
+                      onChange={(val) => onInlineUpdate(t._id, { owner: val as any })}
+                    />
+                  ) : (
+                    <span className="text-gray-600">
+                      {t.owner === meId ? "Me" : userMap.get(t.owner) || t.owner}
+                    </span>
+                  )}
+                </td>
 
-                  {/* Actions */}
-                  <td className="p-2">
-                    {canDelete ? (
-                      <button
-                        className="btn-sm"
-                        disabled={busyId === t._id}
-                        onClick={() => onDelete(t._id)}
-                      >
-                        Delete
-                      </button>
-                    ) : (
-                      <span className="text-xs text-gray-400">—</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+                {/* Actions */}
+                <td className="p-2">
+                  {role === "admin" ? (
+                    <button
+                      className="btn-sm"
+                      disabled={busyId === t._id}
+                      onClick={() => onDelete(t._id)}
+                    >
+                      Delete
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-400">—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center gap-2">
-        <button
-          className="btn-sm"
-          disabled={page <= 1}
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-        >
-          Prev
-        </button>
-        <span className="text-sm">
-          Page {page} / {maxPages}
-        </span>
-        <button
-          className="btn-sm"
-          disabled={page >= maxPages}
-          onClick={() => setPage((p) => Math.min(maxPages, p + 1))}
-        >
-          Next
-        </button>
-        <span className="text-sm ml-auto">{total} total</span>
-      </div>
+      <Pagination
+        page={page}
+        pageSize={limit}
+        total={total}
+        onPageChange={(p) => updateParams({ page: p }, false)}
+        onPageSizeChange={(size) => updateParams({ limit: size, page: 1 })}
+        pageSizeOptions={[5, 10, 20, 50]}
+      />
 
       {toast && <Toast message={toast} onClose={() => setToast(undefined)} />}
     </div>
   );
 }
 
-/* ------- small inline editors ------- */
+/* ------- inline editors (unchanged) ------- */
+import { useEffect as useEffect2, useState as useState2 } from "react";
 
-function InlineText({
-  value,
-  disabled,
-  onSave,
-}: {
-  value: string;
-  disabled?: boolean;
-  onSave: (v: string) => void;
-}) {
-  const [v, setV] = useState(value);
-  useEffect(() => setV(value), [value]);
+function InlineText({ value, disabled, onSave }: { value: string; disabled?: boolean; onSave: (v: string) => void; }) {
+  const [v, setV] = useState2(value);
+  useEffect2(() => setV(value), [value]);
   return (
-    <input
-      className="input"
-      value={v}
-      disabled={disabled}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => v !== value && onSave(v)}
-    />
+    <input className="input" value={v} disabled={disabled} onChange={(e) => setV(e.target.value)} onBlur={() => v !== value && onSave(v)} />
   );
 }
 
-function InlineSelect<T extends string>({
-  value,
-  options,
-  disabled,
-  onChange,
-}: {
-  value: T;
-  options: readonly T[];
-  disabled?: boolean;
-  onChange: (v: T) => void;
-}) {
+function InlineSelect<T extends string>({ value, options, disabled, onChange }: { value: T; options: readonly T[]; disabled?: boolean; onChange: (v: T) => void; }) {
   return (
-    <select
-      className="input"
-      value={value}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.value as T)}
-    >
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
+    <select className="input" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value as T)}>
+      {options.map((o) => <option key={o} value={o}>{o}</option>)}
     </select>
   );
 }
 
-function InlineDate({
-  value,
-  disabled,
-  onChange,
-}: {
-  value: string;
-  disabled?: boolean;
-  onChange: (v: string) => void;
-}) {
-  // expects yyyy-mm-dd
+function InlineDate({ value, disabled, onChange }: { value: string; disabled?: boolean; onChange: (v: string) => void; }) {
   const formatted = value ? new Date(value).toISOString().slice(0, 10) : "";
-  return (
-    <input
-      className="input"
-      type="date"
-      disabled={disabled}
-      value={formatted}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  );
+  return <input className="input" type="date" disabled={disabled} value={formatted} onChange={(e) => onChange(e.target.value)} />;
 }
 
-function InlineAssignee({
-  value,
-  users,
-  disabled,
-  onChange,
-}: {
-  value: string;
-  users: UserLite[];
-  disabled?: boolean;
-  onChange: (v: string) => void;
-}) {
-  // Ensure the current owner is visible even if not in users[]
+function InlineAssignee({ value, users, disabled, onChange }: { value: string; users: UserLite[]; disabled?: boolean; onChange: (v: string) => void; }) {
   const hasCurrent = users.some((u) => u._id === value);
-  const currentFallback = hasCurrent
-    ? null
-    : { _id: value, name: "Current assignee", email: value };
-
+  const currentFallback = hasCurrent ? null : { _id: value, name: "Current assignee", email: value };
   const options = currentFallback ? [currentFallback, ...users] : users;
-
   return (
-    <select
-      className="input"
-      value={value}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      {options.map((u) => (
-        <option key={u._id} value={u._id}>
-          {u.name} — {u.email}
-        </option>
-      ))}
+    <select className="input" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
+      {options.map((u) => <option key={u._id} value={u._id}>{u.name}</option>)}
     </select>
   );
 }
