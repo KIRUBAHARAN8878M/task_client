@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Routes, Route, Navigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, Link, useSearchParams } from 'react-router-dom';
 import ProtectedRoute from './routes/ProtectedRoute';
 import RoleGuard from './routes/RoleGuard';
 import { useAppDispatch, useAppSelector } from './app/hooks';
@@ -9,29 +9,58 @@ import TaskTable from './features/tasks/TaskTable';
 import AddTaskModal from './features/tasks/AddTaskModal';
 import LoginPage from './features/auth/LoginPage';
 import RegisterPage from './features/auth/RegisterPage';
+import Topbar from './componenets/layout/Topbar';
 
 function Dashboard() {
   const user = useAppSelector(s => s.auth.user);
   const d = useAppDispatch();
-  const [openAdd, setOpenAdd] = useState(false);
+
+  // Use URL to control the Add Task modal (?new=1)
+  const [params, setParams] = useSearchParams();
+  const isOpen = params.get('new') === '1';
+
+  const openAdd = () => {
+    const next = new URLSearchParams(params);
+    next.set('new', '1');
+    // replace to avoid polluting history if you click Add multiple times
+    setParams(next, { replace: true });
+  };
+
+  const closeAdd = () => {
+    const next = new URLSearchParams(params);
+    next.delete('new');
+    setParams(next, { replace: true });
+  };
+
+  // Optional: Close modal with Esc key (Topbar is already sticky, modal listens for Esc internally)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && isOpen) closeAdd(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="max-w-5xl mx-auto p-4 space-y-4">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold">Tasks</h1>
-        <div className="flex items-center gap-3 text-sm">
-          <span>{user?.name} ({user?.role})</span>
+    <div className="min-h-screen">
+      <Topbar
+        title="Tasks Management"
+        userName={user?.name}
+        role={user?.role}
+        onAddTask={openAdd}
+        onLogout={() => d(logout())}
+        rightExtra={
           <RoleGuard allow={['admin']}>
-            <Link to="/admin" className="underline">Admin</Link>
+            <Link to="/admin" className="h-9 px-3 rounded border text-sm hover:bg-gray-50 flex items-center">
+              Admin
+            </Link>
           </RoleGuard>
-          <button className="btn-sm" onClick={() => setOpenAdd(true)}>Add Task</button>
-          <button className="btn-sm" onClick={() => d(logout())}>Logout</button>
-        </div>
-      </header>
+        }
+      />
 
-      <TaskTable />
+      <main className="max-w-5xl mx-auto p-4">
+        <TaskTable />
+      </main>
 
-      <AddTaskModal open={openAdd} onClose={() => setOpenAdd(false)} />
+      <AddTaskModal open={isOpen} onClose={closeAdd} />
     </div>
   );
 }
