@@ -37,7 +37,8 @@ export default function Pagination({
       <div className="flex items-center gap-2">
         {onPageSizeChange && (
           <select
-            className="border rounded px-2 py-1 text-sm"
+             className="border rounded px-3 py-1 text-sm bg-white text-gray-900 border-gray-300
+             dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700"
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
             aria-label="Page size"

@@ -8,8 +8,8 @@ export function Toast({ message, onClose }: { message: string; onClose: ()=>void
   }, [onClose]);
   if (!open) return null;
   return (
-    <div className="fixed bottom-4 right-4 bg-black text-white px-4 py-2 rounded shadow">
-      {message}
-    </div>
+    <div className="fixed bottom-4 right-4 bg-black text-white dark:bg-white dark:text-black px-4 py-2 rounded shadow">
+    {message}
+  </div>
   );
 }

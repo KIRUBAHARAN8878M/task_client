@@ -15,7 +15,8 @@ export default function TableToolbar({
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex gap-2">
         <select
-          className="border rounded px-3 py-2 text-sm"
+           className="border rounded px-3 py-2 text-sm bg-white text-gray-900 border-gray-300
+             dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700"
           value={status}
           onChange={(e) => onStatusChange(e.target.value)}
           aria-label="Filter status"
@@ -27,7 +28,8 @@ export default function TableToolbar({
         </select>
 
         <select
-          className="border rounded px-3 py-2 text-sm"
+           className="border rounded px-3 py-2 text-sm bg-white text-gray-900 border-gray-300
+             dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700"
           value={sort}
           onChange={(e) => onSortChange(e.target.value as SortKey)}
           aria-label="Sort"
