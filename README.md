@@ -1,9 +1,5 @@
 
----
-
-## 2) `README.md`
-
-```markdown
+```
 # Task Management Dashboard — Frontend
 
 A responsive task management UI with **JWT authentication**, **role‑based access control**, and **task CRUD** (filters, sort, pagination), built with **React + TypeScript + Vite + Redux Toolkit + Tailwind CSS**.
@@ -14,8 +10,7 @@ A responsive task management UI with **JWT authentication**, **role‑based acce
 
 ## Live Demo
 
-- **Frontend (Vercel)**: _<your-frontend-url>_  
-- **API Base**: _<your-backend-url>/api_
+- **Frontend (Vercel)**: https://task-client-nu.vercel.app 
 
 ---
 
@@ -49,13 +44,12 @@ A responsive task management UI with **JWT authentication**, **role‑based acce
 
 Create a `.env` file in project root:
 
-```bash
 ```
 - VITE_API_BASE=https://your-backend.example.com/api
 
-If not set, it defaults to http://localhost:4000/api.
+- If not set, it defaults to http://localhost:4000/api.
 
-
+```
 **Installation & Development**
 
 # install deps

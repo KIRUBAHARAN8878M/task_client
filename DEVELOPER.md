@@ -1,3 +1,4 @@
+```
 # Task Management Dashboard — Developer Documentation (Frontend)
 
 This document explains **how the frontend works** so a developer can quickly read, run, and extend it.
@@ -5,7 +6,8 @@ This document explains **how the frontend works** so a developer can quickly rea
 > Tech: React + TypeScript + Vite · Redux Toolkit · React Router · Tailwind CSS  
 > API: Node/Express + MongoDB Atlas (hosted separately). This doc focuses on the frontend.
 
----
+```
+```
 
 ## 1. Implemented Features (at a glance)
 
@@ -15,7 +17,8 @@ This document explains **how the frontend works** so a developer can quickly rea
 - **Admin**: User list + change roles.
 - **UI/UX**: Responsive layout, dark mode theme, toasts, loading and empty states.
 
----
+```
+```
 
 ## 2. High‑Level Flow
 
@@ -28,7 +31,8 @@ This document explains **how the frontend works** so a developer can quickly rea
    - If refresh fails: clear token + redirect to `/login`.
 5. Dashboard shows tasks with filters/sort/pagination; admin can manage users at `/admin`.
 
----
+```
+```
 
 ## 3. Project Structure (frontend)
 
@@ -60,7 +64,8 @@ src/
 └─ main.tsx
 
 
----
+```
+```
 
 ## 4. Routing & Guards
 
@@ -72,7 +77,8 @@ src/
 - Protected: `/` (Dashboard), `/admin` (AdminPage)
 - Not found: `* → /`
 
----
+```
+```
 
 ## 5. State Management (Redux Toolkit)
 
@@ -87,7 +93,8 @@ src/
   - State: `{ items, total, loading, error? }`
   - Reducers update the list optimistically with server responses.
 
----
+```
+```
 
 ## 6. HTTP & Auth
 
@@ -105,7 +112,8 @@ src/
 
 > **Production note**: Prefer httpOnly refresh cookies + short‑lived access tokens, with access token kept in memory only.
 
----
+```
+```
 
 ## 7. Tasks Feature (Dashboard)
 
@@ -125,7 +133,8 @@ src/
 - Admin can assign task to any user; others auto‑assign to self.
 - Validates title; prevents past dates in UI.
 
----
+```
+```
 
 ## 8. Admin Feature
 
@@ -134,7 +143,8 @@ src/
 - `listUsers()` and `updateUserRole()` (PUT) to change roles.
 - Shows toasts for success/error, has Back to Tasks and Logout in the Topbar.
 
----
+```
+```
 
 ## 9. UI System & Theming
 
@@ -143,7 +153,8 @@ src/
 - **Topbar** (`componenets/layout/Topbar.tsx`): title, theme toggle, user chip, role badge, Add Task, Logout, and optional right slot.
 - **Theme**: `ThemeProvider` toggles `dark` class on `<html>`; syncs via localStorage.
 
----
+```
+```
 
 ## 10. Environment & Commands
 
@@ -158,6 +169,7 @@ npm run preview   # serve built app locally
 npm run lint      # eslint
 
 ```
+```
 ## 11. Troubleshooting
 
 - 401 loop / redirect to login
@@ -168,7 +180,8 @@ npm run lint      # eslint
 
 - Cold starts
 - Free‑tier hosts can be slow initially; UI shows “Loading…” state.
----
+```
+```
 ## 12. Roadmap (nice‑to‑have)
 - Global toast provider (queue + variants)
 
