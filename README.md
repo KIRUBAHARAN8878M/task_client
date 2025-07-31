@@ -1,69 +1,98 @@
-# React + TypeScript + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+---
 
-Currently, two official plugins are available:
+## 2) `README.md`
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```markdown
+# Task Management Dashboard — Frontend
 
-## Expanding the ESLint configuration
+A responsive task management UI with **JWT authentication**, **role‑based access control**, and **task CRUD** (filters, sort, pagination), built with **React + TypeScript + Vite + Redux Toolkit + Tailwind CSS**.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+> Backend (Node/Express + MongoDB Atlas) is deployed separately. This README covers the **frontend** only.
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+## Live Demo
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **Frontend (Vercel)**: _<your-frontend-url>_  
+- **API Base**: _<your-backend-url>/api_
+
+---
+
+## Features
+
+- **Authentication**: Login/Register, token refresh, auto‑logout on expiry
+- **RBAC**: `admin`, `manager`, `user` with UI/route guards
+- **Tasks**: list with status filter, sort (created/priority/due), pagination, inline editing, delete (admin)
+- **Admin**: user list + change roles
+- **UI/UX**: responsive, dark mode, toasts, loading/empty states
+
+---
+
+## Tech Stack
+
+- React, TypeScript, Vite
+- Redux Toolkit, React Router
+- Tailwind CSS
+- Fetch wrapper with token injection/refresh
+
+---
+
+## Prerequisites
+
+- Node.js 18+
+- Backend API URL (Render or local)
+
+---
+
+## Environment
+
+Create a `.env` file in project root:
+
+```bash
+```
+- VITE_API_BASE=https://your-backend.example.com/api
+
+If not set, it defaults to http://localhost:4000/api.
+
+
+**Installation & Development**
+
+# install deps
+npm install
+
+# start dev server
+npm run dev
+
+# typecheck & build
+npm run build
+
+# preview the production build locally
+npm run preview
+```
+```
+**Folder Structure (short)**
+src/
+├─ app/                # store + typed hooks
+├─ componenets/        # layout + UI primitives (Button, Field, Modal, Toast, etc.)
+├─ features/
+│  ├─ auth/            # authSlice + login/register pages
+│  ├─ tasks/           # taskSlice + table + add modal
+│  └─ users/           # admin page + usersApi
+├─ lib/                # config, http (fetch), token helpers
+├─ routes/             # ProtectedRoute, RoleGuard
+├─ styles/             # tailwind.css
+├─ theme/              # ThemeProvider (dark mode)
+├─ App.tsx
+└─ main.tsx
+```
+```
+**Notes**
+- Access token is mirrored to localStorage for demo persistence.
+- For production, prefer httpOnly refresh cookies and short‑lived access tokens stored in memory.
+
+- Free‑tier backend may have initial cold start delays.
+
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
