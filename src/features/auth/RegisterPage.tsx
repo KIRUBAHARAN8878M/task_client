@@ -44,7 +44,7 @@ export default function RegisterPage() {
     }
   };
 
-  const isDisabled = loading || !name || !email || password.length < 6;
+  // const isDisabled = loading || !name || !email || password.length < 6;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">

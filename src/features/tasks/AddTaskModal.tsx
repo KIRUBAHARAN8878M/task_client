@@ -164,8 +164,8 @@ export default function AddTaskModal({ open, onClose }: Props) {
               </Select>
             </Field>
           ) : (
-            <Field label="Assignee">
-              <Input
+            <Field label="Assignee" htmlFor="assignee_ro">
+              <Input  id="assignee_ro"
                 value={`${me?.name ?? ""} — ${me?.email ?? ""}`}
                 disabled
               />

@@ -92,36 +92,49 @@ export default function TaskTable() {
       .catch((e: any) => setToast(e?.message || "Failed to load tasks"));
   }, [d, status, sort, page, limit]);
 
-  // Update URL helper (keeps URL as the source of truth)
-  const updateParams = (
-    next: Partial<{
-      status: string;
-      sort: SortKey;
-      page: number;
-      limit: number;
-    }>,
-    replace = true
-  ) => {
-    const current = Object.fromEntries(searchParams.entries());
-    const merged = {
-      status,
-      sort,
-      page: String(page),
-      limit: String(limit),
-      ...current,
-      ...Object.fromEntries(
-        Object.entries(next).map(([k, v]) => [k, String(v)])
-      ),
-    };
+const updateParams = (
+  next: Partial<{
+    status: string;
+    sort: SortKey;
+    page: number;
+    limit: number;
+  }>,
+  replace = true
+) => {
+  // current URL params -> plain object of strings
+  const current = Object.fromEntries(searchParams.entries()) as Record<string, string>;
 
-    // Remove defaults to keep URL clean
-    if (merged.status === DEFAULTS.status) delete merged.status;
-    if (merged.sort === DEFAULTS.sort) delete merged.sort;
-    if (Number(merged.page) === DEFAULTS.page) delete merged.page;
-    if (Number(merged.limit) === DEFAULTS.limit) delete merged.limit;
+  // Build "next entries" but ignore undefined/null so we don't stringify them
+  const nextEntries = Object.entries(next)
+    .filter(([, v]) => v !== undefined && v !== null)
+    .map(([k, v]) => [k, String(v as string | number)] as const);
 
-    setSearchParams(merged, { replace });
+  // Make keys optional so `delete` is allowed
+  const merged: Record<string, string | undefined> = {
+    ...current,
+    // seed with current UI state (stringify numbers)
+    status,
+    sort,
+    page: String(page),
+    limit: String(limit),
+    // and then override with explicit next values
+    ...Object.fromEntries(nextEntries),
   };
+
+  // Remove defaults to keep URL clean
+  if (merged.status === DEFAULTS.status) delete merged.status;
+  if (merged.sort === DEFAULTS.sort) delete merged.sort;
+  if (Number(merged.page) === DEFAULTS.page) delete merged.page;
+  if (Number(merged.limit) === DEFAULTS.limit) delete merged.limit;
+
+  // Strip undefined before passing to setSearchParams
+  const pruned = Object.fromEntries(
+    Object.entries(merged).filter(([, v]) => v !== undefined)
+  ) as Record<string, string>;
+
+  setSearchParams(pruned, { replace });
+};
+
 
   const clearFilters = () => {
     setSearchParams({}, { replace: true });

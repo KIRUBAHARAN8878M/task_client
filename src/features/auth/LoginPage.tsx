@@ -41,7 +41,7 @@ export default function LoginPage() {
     }
   };
 
-  const isDisabled = loading || !email || !password;
+  // const isDisabled = loading || !email || !password;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">

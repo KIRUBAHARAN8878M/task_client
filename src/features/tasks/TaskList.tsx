@@ -121,7 +121,7 @@ export default function TaskList() {
 
       {items.length > 0 && (
         <ul className="divide-y border rounded">
-          {items.map((t) => (
+          {items.map((t: Task) => (
             <li key={t._id} className="p-3 flex items-center justify-between">
               <div>
                 <div className="font-medium">{t.title}</div>
