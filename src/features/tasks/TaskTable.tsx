@@ -147,10 +147,10 @@ const updateParams = (
   }, [users]);
 
   // permissions
-  const canEditTitle = (t: Task) => role === "admin";
-  const canEditMeta = (t: Task) => role === "admin" || role === "manager";
-  const canEditOwner = (t: Task) => role === "admin";
-  const canDelete = (t: Task) => role === "admin";
+  const canEditTitle = (_t: Task) => role === "admin";
+  const canEditMeta = (_t: Task) => role === "admin" || role === "manager";
+  const canEditOwner = (_t: Task) => role === "admin";
+  // const canDelete = (_t: Task) => role === "admin";
   const canEditStatus = (t: Task) =>
     role === "admin" ||
     role === "manager" ||
