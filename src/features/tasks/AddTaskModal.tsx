@@ -27,6 +27,8 @@ export default function AddTaskModal({ open, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | undefined>();
 
+  const canPickAssignee = role === "admin";
+
   // reset form when opened
   useEffect(() => {
     if (open) {
@@ -42,7 +44,7 @@ export default function AddTaskModal({ open, onClose }: Props) {
   // admins need the user list to assign to anyone
   useEffect(() => {
     if (!open) return;
-    if (role === "admin") {
+    if (canPickAssignee) {
       setLoadingUsers(true);
       listUsers()
         .then(setUsers)
@@ -51,20 +53,15 @@ export default function AddTaskModal({ open, onClose }: Props) {
     } else {
       setUsers([]);
     }
-  }, [open, role]);
+  }, [open, canPickAssignee]);
 
-  const canPickAssignee = role === "admin";
-
-  // Ensure current user appears as an option even if listUsers is still loading
+  // Ensure current user appears even if listUsers is still loading
   const options = useMemo(() => {
     if (!canPickAssignee) return [];
     const hasMe = users.some((u) => u._id === me?.id);
     return hasMe || !me?.id
       ? users
-      : [
-          { _id: me.id, name: me.name, email: me.email, role: me.role! },
-          ...users,
-        ];
+      : [{ _id: me.id, name: me.name, email: me.email, role: me.role! }, ...users];
   }, [users, canPickAssignee, me]);
 
   const submit = async (e: React.FormEvent) => {
@@ -93,8 +90,17 @@ export default function AddTaskModal({ open, onClose }: Props) {
     }
   };
 
+  const today = new Date().toISOString().slice(0, 10);
+
   return (
-    <Modal open={open} onClose={onClose} title="Create Task">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Create Task"
+      // If your Modal supports className props, these help in dark mode:
+      className="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100"
+      overlayClassName="bg-black/40 dark:bg-black/60"
+    >
       <form onSubmit={submit} className="space-y-3">
         <Field label="Title" htmlFor="title" required>
           <Input
@@ -102,14 +108,17 @@ export default function AddTaskModal({ open, onClose }: Props) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
+            disabled={busy}
           />
         </Field>
+
         <Field label="Description" htmlFor="description">
           <Textarea
             id="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
+            disabled={busy}
           />
         </Field>
 
@@ -119,40 +128,48 @@ export default function AddTaskModal({ open, onClose }: Props) {
               id="priority"
               value={priority}
               onChange={(e) => setPriority(e.target.value as any)}
+              disabled={busy}
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
               <option value="high">High</option>
             </Select>
           </Field>
+
           <Field label="Due Date" htmlFor="due">
             <Input
               id="due"
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
+              min={today}              // optional: prevent past dates
+              disabled={busy}
             />
           </Field>
+
           {canPickAssignee ? (
-            <select
-              className="input"
-              value={assignee}
-              onChange={(e) => setAssignee(e.target.value)}
-              disabled={loadingUsers || busy}
-            >
-              <option value="">Select assignee</option>
-              {options.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
+            <Field label="Assignee" htmlFor="assignee">
+              <Select
+                id="assignee"
+                value={assignee}
+                onChange={(e) => setAssignee(e.target.value)}
+                disabled={loadingUsers || busy}
+              >
+                <option value="">Select assignee</option>
+                {options.map((u) => (
+                  <option key={u._id} value={u._id}>
+                    {u.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
           ) : (
-            <input
-              className="input"
-              value={`${me?.name} — ${me?.email}`}
-              disabled
-            />
+            <Field label="Assignee">
+              <Input
+                value={`${me?.name ?? ""} — ${me?.email ?? ""}`}
+                disabled
+              />
+            </Field>
           )}
         </div>
 
@@ -165,7 +182,7 @@ export default function AddTaskModal({ open, onClose }: Props) {
           >
             Cancel
           </Button>
-          <Button type="submit" loading={busy}>
+          <Button type="submit" loading={busy} disabled={busy}>
             Create Task
           </Button>
         </div>

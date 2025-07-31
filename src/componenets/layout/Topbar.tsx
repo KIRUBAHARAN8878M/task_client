@@ -69,7 +69,7 @@ export default function Topbar({
             {rightExtra}
 
             <button
-              className="h-9 px-3 rounded bg-black text-white text-sm hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90"
+              className="h-8 px-3 rounded bg-black text-white text-sm hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90"
               onClick={onAddTask}
             >
               Add Task
